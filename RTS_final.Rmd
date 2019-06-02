@@ -154,6 +154,9 @@ Where 1s correspond to the position of the note.  Then we simply multiply each 1
 
 To make predictions, we use each model's default `forecast` method to predict 48 notes down the line, or 4 measures into the future. We add some noise based on the model parameters. We will then round all predictions to its nearest whole number.  Note, for time series models the predictions start with the last note. 
 
+We tried DirRec method as well, but the error would blow up substantially after just a few steps due to added noise to point estimates, so we abandoned the approach and treat any musicality as the result of noise.
+
+
 ```{r}
 aarima_pred <- round(forecast(aarima_fit, h = 48)$mean + 
                              ms[length(ms)] + 
@@ -218,4 +221,37 @@ pred_markov <- function(init_vec, tm, n_ahead=16) {
 
 ```{r}
 markov_pred <- pred_markov(c(56,61,64), tm = t_mat, n_ahead = 16)
+```
+
+```{r}
+# Save generated notes to file
+
+```
+
+
+## Appendix
+
+```{r}
+# This is the DirRec approach - it is abandoned.
+pred_arima <- function(ts_data, arima_obj, h = 48) {
+        # use ms_3 series
+        # get arima params
+        data <- ts_data
+        output <- c()
+        params <- unname(arimaorder(arima_obj))
+        for (i in 1:h) {
+                model_refit <- Arima(ts_data,
+                                     order = params,
+                                     include.mean = F)
+                fc <- as.vector(forecast(model_refit, h=1)$mean) + 
+                        data[length(data)] + 
+                        rnorm(1, 0, sd = sqrt(model_refit$sigma2)) # Added error term
+                output <- c(output, fc)
+                # Add point back to data
+                data <- c(data, fc)
+                }
+        
+        return(output)
+}
+
 ```
