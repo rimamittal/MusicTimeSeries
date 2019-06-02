@@ -1,0 +1,257 @@
+---
+title: "RTS Final"
+author: "Terry Wang"
+date: "6/1/2019"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+suppressMessages(library(tidyverse))
+suppressMessages(library(forecast))
+```
+
+## Problem statement
+
+Use time series techniques to learn and construct new music conforming to the style of Beethoven's Moonlight Sonata.
+
+**Disclaimer**: time series might not be the best tool for the problem because, although music looks like a continuous time series on a superficial level, it is discrete and not continuous, so something like HMM might be a better way to tackle it.  But again, if you have a hammer, everything looks like a nail :)
+
+
+## Moonlight Sonata as a time series (arpeggios)
+
+```{r}
+ms <- read.csv("ms_notes.csv")$notes
+ts.plot(ms)
+```
+
+This is **definitely** not a stationary time series but does exhibit some patterns.
+
+## Trying to make moonlight sonata stationary
+
+```{r}
+par(mfrow = c(2,3))
+par(cex = 0.6)
+for (i in 1:6) {
+        acf(diff(ms, i), main = paste("Diff by", i))
+        
+}
+
+```
+
+As we can see, the song exhibits a pattern that for lags of multiples of 3 the ACF start to show exponentially decreasing pattern, and at other lags it looks very unstationary with high correlations at each lag.  Therefore, we will proceed to difference the time series by 3.
+
+## Moonlight sonata lag by 3
+
+```{r}
+ms_3 <- diff(ms, 3)
+par(mfrow=c(1,1))
+ts.plot(ms_3)
+```
+
+## Trying to fit an ARIMA model on this time series
+
+```{r, echo=TRUE}
+aarima_fit <- auto.arima(ms_3)
+summary(aarima_fit)
+```
+
+## Problems with this model
+
+```{r}
+par(mfrow = c(1,2))
+ts.plot(aarima_fit$residuals)
+acf(aarima_fit$residuals)
+```
+
+
+## Problems with this model
+
+```{r, echo=T}
+Box.test(aarima_fit$residuals, type = "L", lag = 10)
+```
+
+The problem is that the residuals are not white noise.  It shows both time-dependent change in variance as well as autocorrelation.
+
+
+## Sophisticated Model 1: GARCHh
+
+GARCH model is a method for dealing with heteroscedasticity in residuals, so we hope this will be more applicable to our data.
+
+```{r}
+garch_fit <- fGarch::garchFit(~arma(1,4) + garch(1,1), data = ms_3, trace = F)
+garch_loglik <- unname(garch_fit@fit$llh)
+```
+
+This GARCH model has a log likelihood of `r garch_loglik`, which is an improvement from `auto.arima`'s `r aarima_fit$loglik`.  
+
+## Even Garch model can't bring residuals under control...
+
+```{r}
+par(mfrow = c(1,2))
+ts.plot(garch_fit@residuals, gpars = list(main="Model Residuals"))
+acf(garch_fit@residuals)
+```
+
+Even with garch the residuals are still showing varying variance and autocorrelation.  
+
+## Sophisticated Model 2: Vector regression
+
+Given the song's particular structure of repeating 3-note arpeggio patterns, it might be useful to reshape the data into a matrix of n*3 and use vector regression to tackle the problem.
+
+```{r}
+suppressMessages(library(vars))
+ms_3col <- matrix(ms, ncol = 3)
+var_est <- VAR(ms_3col,   p=1, type="const")
+summary(var_est)
+```
+
+
+## Vector regression is also problematic and fails to reduce residuals to white noise
+
+```{r}
+par(mfrow=c(1,3))
+acf(resid(var_est)[,1])
+acf(resid(var_est)[,2])
+acf(resid(var_est)[,3])
+
+```
+
+This method is roughly similar to an autoregressive method taking into account the structure of the data.  As such it didn't add much to what we have already tried in terms of bringing residuals under control.
+
+
+## Better Model 1: Simple Markov Chain
+
+This model takes each note as a discrete event and therefore can lead to better fit.  We calculate the transition matrix for each note vs 3 notes into the future.
+
+```{r}
+ms_l3 <- data.frame(ms=ms[1:(length(ms)-3)], ms_l3 = ms[4:length(ms)])
+t_mat <- as.matrix(prop.table(table(ms_l3$ms, ms_l3$ms_l3), 1))
+# We remove the first column of the matrix because note 37 only appeared once in the end
+t_mat <- t_mat[,-1]
+```
+
+## Markov Chain predictions
+
+To predict, we simply give it a 3 note sequence in vector form.  Since our transition matrix has a particular form, we have to conform to it, and mark the corresponding note with a 1.
+
+For example, a three note sequence corresponding to the start of the song (notes 56, 61, 64, a C# minor chord) can be written as:
+
+```{r}
+print(as.numeric(colnames(t_mat)=="56"))
+print(as.numeric(colnames(t_mat)=="61"))
+print(as.numeric(colnames(t_mat)=="64"))
+```
+
+Where 1s correspond to the position of the note.  Then we simply multiply each 1-hot vector with the transition matrix to get the probability for the future note (which we sample).
+
+## Better Model 2: Neural Network
+
+
+
+
+## Learning results
+
+To make predictions, we use each model's default `forecast` method to predict 48 notes down the line, or 4 measures into the future. We add some noise based on the model parameters. We will then round all predictions to its nearest whole number.  Note, for time series models the predictions start with the last note. 
+
+We tried DirRec method as well, but the error would blow up substantially after just a few steps due to added noise to point estimates, so we abandoned the approach and treat any musicality as the result of noise.
+
+
+```{r}
+aarima_pred <- round(forecast(aarima_fit, h = 48)$mean + 
+                             ms[length(ms)] + 
+                             rnorm(mean = 0, 
+                                   sd = sqrt(aarima_fit$sigma2), 
+                                   48))
+garch_pred <- round(fGarch::predict(garch_fit, 48)$meanForecast + 
+                            ms[length(ms)] +
+                            rnorm(n=48, mean=0, sd = fGarch::predict(garch_fit, 48)$standardDeviation))
+```
+
+For vector regression, we have to write our own method which is listed here:
+
+```{r}
+pred_vars <- function(vars_obj, n.ahead = 12) {
+        temp <- predict(vars_obj, n.ahead = n.ahead)
+        sigma_1 <- summary(vars_obj$varresult$y1)
+        sigma_1 <- sigma_1$sigma
+        sigma_2 <- summary(vars_obj$varresult$y2)
+        sigma_2 <- sigma_2$sigma
+        sigma_3 <- summary(vars_obj$varresult$y3)
+        sigma_3 <- sigma_3$sigma
+        
+        output <- data.frame(y1 = round(temp$fcst$y1[,1] + rnorm(n=48, mean=0, sd=sigma_1)),
+                             y2 = round(temp$fcst$y2[,1] + rnorm(n=48, mean=0, sd=sigma_2)),
+                             y3 = round(temp$fcst$y3[,1] + rnorm(n=48, mean=0, sd=sigma_3)))
+        
+        
+        return(as.vector(t(output))) 
+}
+```
+
+```{r}
+vars_pred <- pred_vars(var_est)
+```
+
+Prediction method for Markov Chain:
+
+```{r}
+pred_markov <- function(init_vec, tm, n_ahead=16) {
+        ##############
+        # Inputs:
+        #       init_vec: vector of size 3 indicating the initial notes, must belong to colnames(tm)
+        #       tm: transition matrix, must be square and all rows add up to 1
+        #       n_ahead: how many 3 note arpeggios you want to generate
+        # Output:
+        #       A numerical vector of size 3*n_ahead
+        ##############
+        output <- c()
+        last_3notes <- init_vec
+        for (i in 1:n_ahead) {
+                note1 <- sample(colnames(tm), size = 1, prob = as.numeric(colnames(tm)==as.character(last_3notes[1])) %*% tm)
+                note2 <- sample(colnames(tm), size = 1, prob = as.numeric(colnames(tm)==as.character(last_3notes[1])) %*% tm)
+                note3 <- sample(colnames(tm), size = 1, prob = as.numeric(colnames(tm)==as.character(last_3notes[1])) %*% tm)
+                last_3notes <- c(note1, note2, note3)
+                output <- c(output, note1, note2, note3)
+        }
+        return(as.numeric(output))
+}
+
+```
+
+```{r}
+markov_pred <- pred_markov(c(56,61,64), tm = t_mat, n_ahead = 16)
+```
+
+```{r}
+# Save generated notes to file
+
+```
+
+
+## Appendix
+
+```{r}
+# This is the DirRec approach - it is abandoned.
+pred_arima <- function(ts_data, arima_obj, h = 48) {
+        # use ms_3 series
+        # get arima params
+        data <- ts_data
+        output <- c()
+        params <- unname(arimaorder(arima_obj))
+        for (i in 1:h) {
+                model_refit <- Arima(ts_data,
+                                     order = params,
+                                     include.mean = F)
+                fc <- as.vector(forecast(model_refit, h=1)$mean) + 
+                        data[length(data)] + 
+                        rnorm(1, 0, sd = sqrt(model_refit$sigma2)) # Added error term
+                output <- c(output, fc)
+                # Add point back to data
+                data <- c(data, fc)
+                }
+        
+        return(output)
+}
+
+```
