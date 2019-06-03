@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+  <head>
+    <title>Beethoven’s Moonlight Sonata</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Terry Wang, Rima Mittal, Joshua Goldberg  Time Series Analysis &amp; Forecasting Spring 2019" />
+    <link href="libs/remark-css/robot-fonts.css" rel="stylesheet" />
+    <link rel="stylesheet" href="uchicago.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+
+
+class: title-slide, inverse
+
+&lt;br&gt;&lt;br&gt;
+
+&lt;img src="https://grahamschool.uchicago.edu/themes/custom/ts_uchi/images/svgs/logo.svg" width="75%"/&gt;
+
+# .title-slide-h1[Beethoven's Moonlight Sonata]
+### .title-slide-h2[Analyzing music with time series methodologies]
+.title-slide-h3[Terry Wang, Rima Mittal, Joshua Goldberg]
+
+.title-slide-h3[Time Series Analysis &amp; Forecasting | Spring 2019]
+
+---
+
+class: text-slide, main-slide, center, middle
+
+# The Goal
+
+Use time series methodologies to learn and construct new music conforming to the style of Beethoven's Moonlight Sonata.
+
+???
+
+Predicting next notes was not the focus of our analysis.
+
+---
+
+class: text-slide
+
+# Moonlight Sonata as a time series (arpeggios)
+
+&lt;img src="index_files/figure-html/unnamed-chunk-2-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+???
+
+This is a stationary time series but does exhibit some patterns. There are repeating sequences of 3-note patterns and differencing by 3 improves the model. Again, since our goal is not predicting but identifying the music structure and trying to generate real music, the differencing helps.
+
+---
+
+class: text-slide
+
+# Stationarity
+
+&lt;img src="index_files/figure-html/unnamed-chunk-3-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+???
+
+As we can see, the song exhibits a pattern that for lags of multiples of 3 the ACF start to show exponentially decreasing pattern, and at other lags it looks very unstationary with high correlations at each lag. Therefore, we will proceed to difference the time series by 3.
+
+---
+
+class: text-slide
+
+# Moonlight Sonata lagged by 3
+
+&lt;img src="index_files/figure-html/unnamed-chunk-4-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+---
+
+class: text-slide, main-slide, center, middle
+
+# Modeling
+
+---
+
+class: text-slide
+
+# Baseline model: ARIMA
+
+
+```r
+aarima_fit &lt;- auto.arima(ms_3)
+summary(aarima_fit)
+```
+
+```
+## Series: ms_3 
+## ARIMA(1,0,4) with zero mean 
+## 
+## Coefficients:
+##           ar1     ma1     ma2     ma3      ma4
+##       -0.9562  1.3889  0.9542  0.1902  -0.1811
+## s.e.   0.0148  0.0373  0.0572  0.0565   0.0365
+## 
+## sigma^2 estimated as 7.438:  log likelihood=-1931.47
+## AIC=3874.94   AICc=3875.04   BIC=3903.03
+## 
+## Training set error measures:
+##                       ME     RMSE     MAE MPE MAPE      MASE         ACF1
+## Training set -0.04579418 2.718686 1.63699 NaN  Inf 0.6572701 -0.005812973
+```
+
+---
+
+class: text-slide
+
+# Residual inspection
+
+&lt;img src="index_files/figure-html/unnamed-chunk-6-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+---
+
+class: text-slide
+
+# Testing residuals
+
+Residuals are not white noise. Inspection shows both time-dependent change in variance and autocorrelation.
+
+
+```r
+Box.test(aarima_fit$residuals, type = "L", lag = 10)
+```
+
+```
+## 
+## 	Box-Ljung test
+## 
+## data:  aarima_fit$residuals
+## X-squared = 35.255, df = 10, p-value = 0.000113
+```
+
+---
+
+class: text-slide
+
+# Sophisticated model 1: GARCH
+
+GARCH model is a method for dealing with heteroscedasticity in residuals, so we hope this will be more applicable to our data.
+
+
+```r
+garch_fit &lt;-
+  fGarch::garchFit( ~ arma(1, 4) + garch(1, 1), data = ms_3, trace = F)
+```
+
+The GARCH model has a log likelihood of 1585.0695755, which is an improvement from `auto.arima`'s -1931.4676347. 
+
+---
+
+class: text-slide
+
+# Residual issues persist...
+
+&lt;img src="index_files/figure-html/unnamed-chunk-9-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+???
+
+Even using GARCH model, the residuals are still showing varying variance and autocorrelation.
+
+---
+
+class: text-slide
+
+# Sophisticated model 2: vector regression
+
+Given the song's particular structure of repeating 3-note arpeggio patterns, it might be useful to reshape the data into a matrix of `\(n\times3\)` and use vector regression to tackle the problem.
+
+
+```r
+library(vars)
+ms_3col &lt;- matrix(ms, ncol = 3)
+var_est &lt;- VAR(ms_3col, p = 1, type = "const")
+```
+
+
+```r
+summary(var_est)
+```
+
+---
+
+class: text-slide
+
+# Residuals still bad...
+
+Vector regression is also problematic and fails to reduce residuals to white noise:
+
+&lt;img src="index_files/figure-html/unnamed-chunk-12-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+???
+
+This method is roughly similar to an autoregressive method taking into account the structure of the data. As such it didn't add much to what we have already tried in terms of bringing residuals under control.
+
+---
+
+class: text-slide
+
+# Better model 1: simple markov chain
+
+This model takes each note as a discrete event and therefore can lead to better fit. We calculate the transition matrix for each note vs 3 notes into the future.
+
+
+```r
+ms_l3 &lt;-
+  data.frame(ms = ms[1:(length(ms) - 3)], ms_l3 = ms[4:length(ms)])
+t_mat &lt;- as.matrix(prop.table(table(ms_l3$ms, ms_l3$ms_l3), 1))
+
+# We remove the first column of the matrix because note 37 only appeared once in the end
+t_mat &lt;- t_mat[, -1]
+```
+
+---
+
+class: text-slide
+
+# Markov chain predictions
+
+* To predict, we simply give it a 3 note sequence in vector form.  Since our transition matrix has a particular form, we have to conform to it, and mark the corresponding note with a 1.
+
+For example, a three note sequence corresponding to the start of the song (notes 56, 61, 64, a C# minor chord) can be written as:
+
+
+```
+##  [1] 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+## [36] 0 0
+```
+
+```
+##  [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+## [36] 0 0
+```
+
+```
+##  [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+## [36] 0 0
+```
+
+* Note: 1's correspond to the position of the note. 
+
+* Then we simply multiply each 1-hot vector with the transition matrix to get the probability for the future note (which we sample).
+
+---
+
+class: text-slide
+
+# Better model 2: neural network
+
+---
+
+class: text-slide, main-slide, center, middle
+
+# Prediction
+
+---
+
+class: text-slide
+
+# Learning results
+
+* To make predictions, we use each model's default `forecast` method to predict 48 notes down the line, or 4 measures into the future. 
+
+* We add some noise based on the model parameters.
+
+* Round all predictions to its nearest whole number. Note, for time series models the predictions start with the last note.
+
+
+```r
+aarima_pred &lt;- round(forecast(aarima_fit, h = 48)$mean +
+                       ms[length(ms)] +
+                       rnorm(mean = 0,
+                             sd = sqrt(aarima_fit$sigma2),
+                             48))
+
+garch_pred &lt;- round(
+  fGarch::predict(garch_fit, 48)$meanForecast +
+    ms[length(ms)] +
+    rnorm(
+      n = 48,
+      mean = 0,
+      sd = fGarch::predict(garch_fit, 48)$standardDeviation
+    )
+)
+```
+
+---
+
+class: text-slide
+
+# Prediction: vector regression
+
+
+```r
+pred_vars &lt;- function(vars_obj, n.ahead = 12) {
+  temp &lt;- predict(vars_obj, n.ahead = n.ahead)
+  sigma_1 &lt;- summary(vars_obj$varresult$y1)
+  sigma_1 &lt;- sigma_1$sigma
+  sigma_2 &lt;- summary(vars_obj$varresult$y2)
+  sigma_2 &lt;- sigma_2$sigma
+  sigma_3 &lt;- summary(vars_obj$varresult$y3)
+  sigma_3 &lt;- sigma_3$sigma
+  
+  output &lt;-
+    data.frame(
+      y1 = round(temp$fcst$y1[, 1] + rnorm(
+        n = 48, mean = 0, sd = sigma_1
+      )),
+      y2 = round(temp$fcst$y2[, 1] + rnorm(
+        n = 48, mean = 0, sd = sigma_2
+      )),
+      y3 = round(temp$fcst$y3[, 1] + rnorm(
+        n = 48, mean = 0, sd = sigma_3
+      ))
+    )
+  
+  return(as.vector(t(output)))
+}
+```
+
+
+
+---
+
+class: text-slide
+
+# Prediction: Markov Chain
+
+
+```r
+pred_markov &lt;- function(init_vec, tm, n_ahead = 16) {
+  output &lt;- c()
+  last_3notes &lt;- init_vec
+  for (i in 1:n_ahead) {
+    note1 &lt;- sample(
+        colnames(tm),
+        size = 1,
+        prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
+      )
+    note2 &lt;-sample(
+        colnames(tm),
+        size = 1,
+        prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
+      )
+    note3 &lt;- sample(
+        colnames(tm),
+        size = 1,
+        prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
+      )
+    last_3notes &lt;- c(note1, note2, note3)
+    output &lt;- c(output, note1, note2, note3)
+  }
+  return(as.numeric(output))
+}
+```
+
+???
+
+### Inputs:
+__init_vec:__ vector of size 3 indicating the initial notes, must belong to colnames(tm)
+
+__tm:__ transition matrix, must be square and all rows add up to 1
+
+__n_ahead:__ how many 3 note arpeggios you want to generate
+
+### Output: 
+
+A numerical vector of size 3*n_ahead
+  
+
+
+
+
+---
+
+class: text-slide, main-slide, center, middle
+
+# Appendix
+
+---
+
+class: text-slide
+
+# DirRec
+
+We tried DirRec method as well, but the error would blow up substantially after just a few steps due to added noise to point estimates, so we abandoned the approach and treat any musicality as the result of noise.
+
+
+```r
+# This is the DirRec approach - it is abandoned.
+pred_arima &lt;- function(ts_data, arima_obj, h = 48) {
+  # use ms_3 series
+  # get arima params
+  data &lt;- ts_data
+  output &lt;- c()
+  params &lt;- unname(arimaorder(arima_obj))
+  for (i in 1:h) {
+    model_refit &lt;- Arima(ts_data,
+                         order = params,
+                         include.mean = F)
+    fc &lt;- as.vector(forecast(model_refit, h = 1)$mean) +
+      data[length(data)] +
+      rnorm(1, 0, sd = sqrt(model_refit$sigma2)) # Added error term
+    output &lt;- c(output, fc)
+    # Add point back to data
+    data &lt;- c(data, fc)
+  }
+  return(output)
+}
+```
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
