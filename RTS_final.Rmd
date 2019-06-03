@@ -2,13 +2,17 @@
 title: "RTS Final"
 author: "Terry Wang"
 date: "6/1/2019"
-output: ioslides_presentation
+output:
+  ioslides_presentation: default
+  slidy_presentation: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 suppressMessages(library(tidyverse))
 suppressMessages(library(forecast))
+library(tseries)
+library(TSA)
 ```
 
 ## Problem statement
@@ -23,9 +27,13 @@ Use time series techniques to learn and construct new music conforming to the st
 ```{r}
 ms <- read.csv("ms_notes.csv")$notes
 ts.plot(ms)
+acf(ms)
+
+adf.test(ms)
+kpss.test(ms)
 ```
 
-This is **definitely** not a stationary time series but does exhibit some patterns.
+This is a stationary time series but does exhibit some patterns. There are repeating sequences of 3-note patterns and differencing by 3 improves the model. Again, since our goal is not predicting but identifying the music structure and trying to generate real music, the differencing helps.
 
 ## Trying to make moonlight sonata stationary
 
@@ -129,6 +137,7 @@ ms_l3 <- data.frame(ms=ms[1:(length(ms)-3)], ms_l3 = ms[4:length(ms)])
 t_mat <- as.matrix(prop.table(table(ms_l3$ms, ms_l3$ms_l3), 1))
 # We remove the first column of the matrix because note 37 only appeared once in the end
 t_mat <- t_mat[,-1]
+
 ```
 
 ## Markov Chain predictions
@@ -163,6 +172,7 @@ aarima_pred <- round(forecast(aarima_fit, h = 48)$mean +
                              rnorm(mean = 0, 
                                    sd = sqrt(aarima_fit$sigma2), 
                                    48))
+
 garch_pred <- round(fGarch::predict(garch_fit, 48)$meanForecast + 
                             ms[length(ms)] +
                             rnorm(n=48, mean=0, sd = fGarch::predict(garch_fit, 48)$standardDeviation))
@@ -225,7 +235,10 @@ markov_pred <- pred_markov(c(56,61,64), tm = t_mat, n_ahead = 16)
 
 ```{r}
 # Save generated notes to file
-
+write.csv(aarima_pred, file = "pred_sequences/aarima_pred.csv")
+write.csv(garch_pred, file = "pred_sequences/garch_pred.csv")
+write.csv(vars_pred, file = "pred_sequences/vars_pred.csv")
+write.csv(markov_pred, file = "pred_sequences/markov_pred.csv")
 ```
 
 
