@@ -15,7 +15,7 @@
 
 
 
-class: title-slide, inverse
+class: title-slide
 
 &lt;br&gt;&lt;br&gt;
 
@@ -37,7 +37,7 @@ Use time series methodologies to learn and construct new music conforming to the
 
 ???
 
-Predicting next notes was not the focus of our analysis.
+Predicting next notes was not the focus of our analysis. Disclaimer: time series might not be the best tool for the problem because, although music looks like a continuous time series on a superficial level, it is discrete and not continuous, so something like HMM might be a better way to tackle it.  But again, if you have a hammer, everything looks like a nail :)
 
 ---
 
@@ -211,7 +211,8 @@ ms_l3 &lt;-
   data.frame(ms = ms[1:(length(ms) - 3)], ms_l3 = ms[4:length(ms)])
 t_mat &lt;- as.matrix(prop.table(table(ms_l3$ms, ms_l3$ms_l3), 1))
 
-# We remove the first column of the matrix because note 37 only appeared once in the end
+# We remove the first column of the matrix because note 37 only 
+# appeared once in the end
 t_mat &lt;- t_mat[, -1]
 ```
 
@@ -374,6 +375,14 @@ A numerical vector of size 3*n_ahead
 
 
 
+
+---
+
+class: text-slide
+
+# What we've learned
+
+...
 
 ---
 

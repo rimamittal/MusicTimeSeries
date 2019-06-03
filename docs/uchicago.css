@@ -40,7 +40,7 @@
     text-align: left;
     text-shadow: none;
     padding: 0;
-    margin: 0;
+    margin: 0; 
     line-height: 1;
 }
 
@@ -92,6 +92,10 @@
 .main-slide {
     background-color: #800000;
     color: #F3F3F1;
+}
+
+.main-slide  .remark-slide-number {
+    display: none;
 }
 
 .main-slide h1 {

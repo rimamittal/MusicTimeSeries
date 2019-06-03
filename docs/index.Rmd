@@ -25,6 +25,7 @@ knitr::opts_chunk$set(
   fig.width = 10,
   fig.height = 6.25
 )
+
 library(tidyverse)
 library(glue)
 library(here)
@@ -54,7 +55,7 @@ system("docker run --rm -t -v `pwd`:/slides -v ~:/home/user astefanutti/decktape
 system("docker run --rm -t --net=host -v `pwd`:/slides astefanutti/decktape http://localhost:8000 slides.pdf")
 ```
 
-class: title-slide, inverse
+class: title-slide
 
 <br><br>
 
@@ -76,7 +77,7 @@ Use time series methodologies to learn and construct new music conforming to the
 
 ???
 
-Predicting next notes was not the focus of our analysis.
+Predicting next notes was not the focus of our analysis. Disclaimer: time series might not be the best tool for the problem because, although music looks like a continuous time series on a superficial level, it is discrete and not continuous, so something like HMM might be a better way to tackle it.  But again, if you have a hammer, everything looks like a nail :)
 
 ---
 
@@ -247,7 +248,8 @@ ms_l3 <-
   data.frame(ms = ms[1:(length(ms) - 3)], ms_l3 = ms[4:length(ms)])
 t_mat <- as.matrix(prop.table(table(ms_l3$ms, ms_l3$ms_l3), 1))
 
-# We remove the first column of the matrix because note 37 only appeared once in the end
+# We remove the first column of the matrix because note 37 only 
+# appeared once in the end
 t_mat <- t_mat[, -1]
 ```
 
@@ -407,6 +409,14 @@ write.csv(garch_pred, file = glue("{here()}/pred_sequences/garch_pred.csv"))
 write.csv(vars_pred, file = glue("{here()}/pred_sequences/vars_pred.csv"))
 write.csv(markov_pred, file = glue("{here()}/pred_sequences/markov_pred.csv"))
 ```
+
+---
+
+class: text-slide
+
+# What we've learned
+
+...
 
 ---
 
