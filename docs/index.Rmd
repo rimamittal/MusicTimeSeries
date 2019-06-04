@@ -34,6 +34,8 @@ library(tseries)
 library(TSA)
 library(knitr)
 library(xaringan)
+
+set.seed(4361)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -368,7 +370,7 @@ pred_markov <- function(init_vec, tm, n_ahead = 16) {
         size = 1,
         prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
       )
-    note2 <-sample(
+    note2 <- sample(
         colnames(tm),
         size = 1,
         prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
@@ -414,16 +416,33 @@ write.csv(markov_pred, file = glue("{here()}/pred_sequences/markov_pred.csv"))
 
 class: text-slide
 
-# Predictions
+# Prediction Results
 
-```{r}
-par(mfrow=c(4,1))
-ts.plot(aarima_pred)
-ts.plot(garch_pred)
-ts.plot(vars_pred[1:48])
-ts.plot(markov_pred)
+Only VARS was able to replicate some of the structure in the music:
+
+```{r dev="svg"}
+all_ts <- tibble(ARIMA = (aarima_pred %>% as.double()), 
+                 GARCH = garch_pred, 
+                 VARS = vars_pred[1:48], 
+                 Markov = markov_pred) %>% 
+  gather(key = model, value = value) %>% 
+  group_by(model) %>% 
+  mutate(time_sequence = row_number()) %>% 
+  ungroup()
+
+plot_colors <- c("ARIMA" = "#91ab5a", "GARCH" = "#565656", "VARS" = "#800000",
+                 "Markov" = "#ffa319")
+
+all_ts %>% 
+  ggplot(aes(time_sequence, value, color = model)) +
+  geom_line() +
+  facet_wrap( ~ model) +
+  scale_color_manual(values = plot_colors) +
+  labs(x = "Note Sequence",
+       y = NULL) +
+  ggthemes::theme_tufte() +
+  theme(legend.position = "none")
 ```
-Only VARS was able to replicate some of the structure in the music.
 
 ---
 

@@ -342,7 +342,7 @@ pred_markov &lt;- function(init_vec, tm, n_ahead = 16) {
         size = 1,
         prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
       )
-    note2 &lt;-sample(
+    note2 &lt;- sample(
         colnames(tm),
         size = 1,
         prob = as.numeric(colnames(tm) == as.character(last_3notes[1])) %*% tm
@@ -380,10 +380,11 @@ A numerical vector of size 3*n_ahead
 
 class: text-slide
 
-# Predictions
+# Prediction Results
 
-&lt;img src="index_files/figure-html/unnamed-chunk-21-1.png" width="720" style="display: block; margin: auto;" /&gt;
-Only VARS was able to replicate some of the structure in the music.
+Only VARS was able to replicate some of the structure in the music:
+
+&lt;img src="index_files/figure-html/unnamed-chunk-21-1.svg" width="720" style="display: block; margin: auto;" /&gt;
 
 ---
 
