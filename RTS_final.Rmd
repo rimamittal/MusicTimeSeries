@@ -250,7 +250,7 @@ ts.plot(garch_pred)
 ts.plot(vars_pred[1:48])
 ts.plot(markov_pred)
 ```
-Only VARS was able to 
+Only VARS was able to replicate some of the structure in the music.
 
 ## Appendix
 
