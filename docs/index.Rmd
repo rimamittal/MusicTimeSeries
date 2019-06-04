@@ -414,7 +414,7 @@ write.csv(markov_pred, file = glue("{here()}/pred_sequences/markov_pred.csv"))
 
 class: text-slide
 
-# What we've learned
+# Predictions
 
 ```{r}
 par(mfrow=c(4,1))
