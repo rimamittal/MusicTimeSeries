@@ -416,6 +416,14 @@ class: text-slide
 
 # What we've learned
 
+```{r}
+par(mfrow=c(4,1))
+ts.plot(aarima_pred)
+ts.plot(garch_pred)
+ts.plot(vars_pred[1:48])
+ts.plot(markov_pred)
+```
+Only VARS was able to 
 ...
 
 ---
