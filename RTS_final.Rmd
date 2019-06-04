@@ -241,6 +241,16 @@ write.csv(vars_pred, file = "pred_sequences/vars_pred.csv")
 write.csv(markov_pred, file = "pred_sequences/markov_pred.csv")
 ```
 
+## Visualizing Results
+
+```{r}
+par(mfrow=c(4,1))
+ts.plot(aarima_pred)
+ts.plot(garch_pred)
+ts.plot(vars_pred[1:48])
+ts.plot(markov_pred)
+```
+Only VARS was able to 
 
 ## Appendix
 
