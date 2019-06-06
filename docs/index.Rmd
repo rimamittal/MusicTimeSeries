@@ -4,7 +4,7 @@ subtitle: "Analyzing music with time series methodologies"
 author: "Terry Wang, Rima Mittal, Joshua Goldberg <br><span style='font-size: 50%;'>Time Series Analysis & Forecasting<br>Spring 2019</span>"
 output:
   xaringan::moon_reader:
-    css: [uchicago.css, robot-fonts]
+    css: [default, uchicago.css, robot-fonts]
     lib_dir: libs
     nature:
       titleSlideClass: ["left", "middle", "inverse"]
@@ -87,14 +87,44 @@ class: text-slide
 
 # Moonlight Sonata as a time series (arpeggios)
 
-```{r fig.align="center", fig.width=10, fig.height=6.25}
+Notice the 3 note arpeggio pattern. 
+
+.pull-left[
+```{r fig.width=10, fig.height=6.25}
 ms <- read.csv("ms_notes.csv")$notes
 ts.plot(ms)
 ```
+]
+
+.pull-right[<iframe width="372" height="204" src="https://www.youtube.com/embed/4Tr0otuiQuU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>]
 
 ???
 
 This is a stationary time series but does exhibit some patterns. There are repeating sequences of 3-note patterns and differencing by 3 improves the model. Again, since our goal is not predicting but identifying the music structure and trying to generate real music, the differencing helps.
+
+---
+class: text-slide
+
+# Stationarity
+
+```{r, echo=TRUE}
+adf.test(ms)
+kpss.test(ms)
+```
+
+KPSS Test shows the Time Series is Stationary.
+---
+
+class: text-slide
+
+# Stationarity
+
+```{r, fig.width=10, fig.height=6.25}
+p <- periodogram(ms)
+max_freq <- p$freq[which.max(p$spec)]
+seasonality <- 1/max_freq
+```
+The periodogram detects some seasonality, and the maximum frequency correponds to a seasonality of `r seasonality`
 
 ---
 
@@ -182,7 +212,7 @@ garch_fit <-
 garch_loglik <- unname(garch_fit@fit$llh)
 ```
 
-The GARCH model has a log likelihood of `r garch_loglik`, which is an improvement from `auto.arima`'s `r aarima_fit$loglik`. 
+The GARCH model has a log likelihood of `r garch_loglik`, compared to `auto.arima`'s `r aarima_fit$loglik`. 
 
 ---
 
@@ -281,6 +311,11 @@ class: text-slide
 
 # Better model 2: neural network
 
+Used grouping of 3 notes as input to predict the next 3 notes. The RNN Model learned the 3 note arpeggio pattern.
+
+```{r}
+knitr::include_graphics('image/lstm.png')
+```
 ---
 
 class: text-slide, main-slide, center, middle

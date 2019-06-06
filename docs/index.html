@@ -4,6 +4,7 @@
     <title>Beethoven’s Moonlight Sonata</title>
     <meta charset="utf-8" />
     <meta name="author" content="Terry Wang, Rima Mittal, Joshua Goldberg  Time Series Analysis &amp; Forecasting Spring 2019" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/robot-fonts.css" rel="stylesheet" />
     <link rel="stylesheet" href="uchicago.css" type="text/css" />
   </head>
@@ -45,11 +46,58 @@ class: text-slide
 
 # Moonlight Sonata as a time series (arpeggios)
 
+Notice the 3 note arpeggio pattern. 
+
+.pull-left[
 &lt;img src="index_files/figure-html/unnamed-chunk-2-1.png" width="720" style="display: block; margin: auto;" /&gt;
+]
+
+.pull-right[&lt;iframe width="372" height="204" src="https://www.youtube.com/embed/4Tr0otuiQuU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen&gt;&lt;/iframe&gt;]
 
 ???
 
 This is a stationary time series but does exhibit some patterns. There are repeating sequences of 3-note patterns and differencing by 3 improves the model. Again, since our goal is not predicting but identifying the music structure and trying to generate real music, the differencing helps.
+
+---
+class: text-slide
+
+# Stationarity
+
+
+```r
+adf.test(ms)
+```
+
+```
+## 
+## 	Augmented Dickey-Fuller Test
+## 
+## data:  ms
+## Dickey-Fuller = -3.4876, Lag order = 9, p-value = 0.0435
+## alternative hypothesis: stationary
+```
+
+```r
+kpss.test(ms)
+```
+
+```
+## 
+## 	KPSS Test for Level Stationarity
+## 
+## data:  ms
+## KPSS Level = 0.32934, Truncation lag parameter = 6, p-value = 0.1
+```
+
+KPSS Test shows the Time Series is Stationary.
+---
+
+class: text-slide
+
+# Stationarity
+
+&lt;img src="index_files/figure-html/unnamed-chunk-4-1.png" width="720" style="display: block; margin: auto;" /&gt;
+The periodogram detects some seasonality, and the maximum frequency correponds to a seasonality of 3
 
 ---
 
@@ -57,7 +105,7 @@ class: text-slide
 
 # Stationarity
 
-&lt;img src="index_files/figure-html/unnamed-chunk-3-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-5-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ???
 
@@ -69,7 +117,7 @@ class: text-slide
 
 # Moonlight Sonata lagged by 3
 
-&lt;img src="index_files/figure-html/unnamed-chunk-4-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-6-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ---
 
@@ -112,7 +160,7 @@ class: text-slide
 
 # Residual inspection
 
-&lt;img src="index_files/figure-html/unnamed-chunk-6-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-8-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ---
 
@@ -149,7 +197,7 @@ garch_fit &lt;-
   fGarch::garchFit( ~ arma(1, 4) + garch(1, 1), data = ms_3, trace = F)
 ```
 
-The GARCH model has a log likelihood of 1585.0695755, which is an improvement from `auto.arima`'s -1931.4676347. 
+The GARCH model has a log likelihood of 1585.0695755, compared to `auto.arima`'s -1931.4676347. 
 
 ---
 
@@ -157,7 +205,7 @@ class: text-slide
 
 # Residual issues persist...
 
-&lt;img src="index_files/figure-html/unnamed-chunk-9-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-11-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ???
 
@@ -191,7 +239,7 @@ class: text-slide
 
 Vector regression is also problematic and fails to reduce residuals to white noise:
 
-&lt;img src="index_files/figure-html/unnamed-chunk-12-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-14-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ???
 
@@ -252,6 +300,9 @@ class: text-slide
 
 # Better model 2: neural network
 
+Used grouping of 3 notes as input to predict the next 3 notes. The RNN Model learned the 3 note arpeggio pattern.
+
+&lt;img src="image/lstm.png" style="display: block; margin: auto;" /&gt;
 ---
 
 class: text-slide, main-slide, center, middle
@@ -384,7 +435,7 @@ class: text-slide
 
 Only VARS was able to replicate some of the structure in the music:
 
-&lt;img src="index_files/figure-html/unnamed-chunk-21-1.svg" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="index_files/figure-html/unnamed-chunk-24-1.svg" width="720" style="display: block; margin: auto;" /&gt;
 
 ---
 
